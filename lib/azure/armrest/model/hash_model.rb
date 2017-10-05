@@ -76,9 +76,12 @@ module Azure
         end
       end ## self
 
-      def initialize(json_or_hash)
+      def initialize(json_or_hash, skip_accessors_definition = false )
         @data = (json_or_hash.kind_of?(Hash) ? json_or_hash : JSON.parse(json_or_hash)).with_indifferent_access
-        @data.each {|key, value| @data[key] = self.class.send(:convert_value, key, value, self) }
+
+        unless skip_accessors_definition
+          @data.each {|key, value| @data[key] = self.class.send(:convert_value, key, value, self) }
+        end
       end
 
       def [](key)

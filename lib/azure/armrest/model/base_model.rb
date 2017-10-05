@@ -22,6 +22,58 @@ module Azure
         @excl_list = excl_list | Set.new(attrs.map(&:to_s))
       end
 
+      # Defines attr_reader methods for the given set of attributes and
+      # expected hash key.  Used to define methods that can be used internally
+      # that avoid needing to use methods defined from
+      # `add_accessor_methods`/`__setobj__`
+      #
+      # Example:
+      #   class Vm < Azure::ArmRest::BaseModel
+      #     attr_from_hash :name => :Name
+      #   end
+      #
+      #   json_string = {'name' => 'Deathstar'}
+      #
+      #   vm = Vm.new(json_string)
+      #   vm.name_from_hash
+      #   #=> "Deathstar"
+      #
+      #   # If the attr_from_hash can also support multiple attrs in a single
+      #   # call, and nested params
+      #
+      #   class Host < Azure::ArmRest::BaseModel
+      #     attr_from_hash :name => :Name,
+      #                    :address => [:Properties, :ipAddress],
+      #   end
+      #
+      #   json_string = {'name' => 'Hoth', :Properties => {:ipAddress => '123.123.123.123'}}
+      #
+      #   host = Host.new(json_string)
+      #   host.name_from_hash
+      #   #=> "Hoth"
+      #   host.address_from_hash
+      #   #=> "123.123.123.123"
+      #
+      def self.attr_from_hash(attrs = {})
+        file, line, _ = caller.first.split(":")
+        attrs.each do |attr_name, keys|
+          keys      = Array(keys)
+          first_key = keys.shift
+          method_def = [
+            "def #{attr_name}_from_hash",
+            "  return @#{attr_name}_from_hash if defined?(@#{attr_name}_from_hash)",
+            "  @#{attr_name}_from_hash = @data[:#{first_key}] || @data[\"#{first_key}\"]",
+            "end"
+          ]
+          keys.each do |hash_key|
+            method_def.insert(-2, "  @#{attr_name}_from_hash = @#{attr_name}_from_hash[:#{hash_key}] || @#{attr_name}_from_hash[\"#{hash_key}\"]")
+          end
+          class_eval(method_def.join("; "), file, line.to_i)
+        end
+      end
+
+      private_class_method :attr_from_hash
+
       def self.attr_excluded?(attr)
         excl_list.include?(attr)
       end
@@ -36,14 +88,24 @@ module Azure
       attr_hash :tags
 
       def resource_group
-        @resource_group ||= id[/resourcegroups\/(.*?[^\/]+)?/i, 1] rescue nil
+        # @resource_group ||= id[/resourcegroups\/(.*?[^\/]+)?/i, 1] rescue nil
+        @resource_group ||= begin
+                              id_from_hash[/resourcegroups\/(.*?[^\/]+)?/i, 1]
+                            rescue
+                              nil
+                            end
       end
 
       def subscription_id
-        @subscription_id ||= id[/subscriptions\/(.*?[^\/]+)?/i, 1] rescue nil
+        # @subscription_id ||= id[/subscriptions\/(.*?[^\/]+)?/i, 1] rescue nil
+        @subscription_id ||= begin
+                               id_from_hash[/subscriptions\/(.*?[^\/]+)?/i, 1]
+                             rescue
+                               nil
+                             end
       end
 
-      def initialize(json_or_hash)
+      def initialize(json_or_hash, skip_accessors_definition = false)
         @child_excl_list = self.class.send(:excl_list).map do |e|
           e.index('#') ? e[e.index('#') + 1..-1] : ''
         end
@@ -71,6 +133,15 @@ module Azure
             self.class.const_set(klass_name, Class.new(self.class) { attr_hash(*child_excl_list) })
           end
         model_klass.new(hash)
+      end
+
+      # Do not use this method directly.
+      #
+      # Will only attempt to fetch the id from the @hashobj once, so even it it
+      # is nil, it will cache that value, and return that on subsequent calls.
+      def id_from_hash
+        return @id_from_hash if defined?(@id_from_hash)
+        @id_from_hash = @data[:id] || @data["id"]
       end
     end
 
@@ -101,8 +172,11 @@ module Azure
 
     class StorageAccount < BaseModel; end
     class StorageAccountKey < StorageAccount
-      def key1; key_name == 'key1' ? value : nil; end
-      def key2; key_name == 'key2' ? value : nil; end
+      attr_from_hash :key_name => :keyName,
+                     :value    => :value
+
+      def key1; key_name_from_hash == 'key1' ? value_from_hash : nil; end
+      def key2; key_name_from_hash == 'key2' ? value_from_hash : nil; end
       def key; key1 || key2; end
     end
 
