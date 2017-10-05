@@ -17,9 +17,18 @@ module Azure
 
       private_class_method :excl_list
 
+      def self.child_excl_list
+        @child_excl_list ||= []
+      end
+
+      private_class_method :excl_list
+
       # Merge the declared exclusive attributes to the existing list.
       def self.attr_hash(*attrs)
         @excl_list = excl_list | Set.new(attrs.map(&:to_s))
+        @child_excl_list = @excl_list.map do |e|
+          e.index('#') ? e[e.index('#') + 1..-1] : ''
+        end
       end
 
       # Defines attr_reader methods for the given set of attributes and
@@ -106,9 +115,9 @@ module Azure
       end
 
       def initialize(json_or_hash, skip_accessors_definition = false)
-        @child_excl_list = self.class.send(:excl_list).map do |e|
-          e.index('#') ? e[e.index('#') + 1..-1] : ''
-        end
+        # @child_excl_list = self.class.send(:excl_list).map do |e|
+        #   e.index('#') ? e[e.index('#') + 1..-1] : ''
+        # end
 
         super
       end
@@ -129,7 +138,8 @@ module Azure
           if self.class.const_defined?(klass_name, false)
             self.class.const_get(klass_name)
           else
-            child_excl_list = @child_excl_list
+            # child_excl_list = @child_excl_list
+            child_excl_list = self.class.child_excl_list
             self.class.const_set(klass_name, Class.new(self.class) { attr_hash(*child_excl_list) })
           end
         model_klass.new(hash)
