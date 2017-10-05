@@ -77,7 +77,7 @@ describe "BaseModel" do
     it "returns the expected hash for the tags method when defined" do
       json = {:name => 'test', :tags => {:foo => 1, :bar => 2}}
       base = Azure::Armrest::BaseModel.new(json)
-      expect(base.tags).to eq({:foo => 1, :bar => 2})
+      expect(base.tags).to eq({"foo" => 1, "bar" => 2})
     end
 
     it "returns the expected hash for the tags and other declared methods when defined" do
@@ -86,8 +86,8 @@ describe "BaseModel" do
         attr_hash :users
       end.new(json)
 
-      expect(test.tags).to eq({:foo => 1, :bar => 2})
-      expect(test.users).to eq({:foo => 3, :bar => 4})
+      expect(test.tags).to eq({"foo" => 1, "bar" => 2})
+      expect(test.users).to eq({"foo" => 3, "bar" => 4})
     end
 
     it "returns the expected hash for declared nested methods" do
@@ -106,7 +106,7 @@ describe "BaseModel" do
       end
       test = Test.new(json)
 
-      expect(test.attr1.attr2[0].attr3).to eq({:foo => 1, :bar => 2})
+      expect(test.attr1.attr2[0].attr3).to eq({"foo" => 1, "bar" => 2})
       expect(test.attr1.attr2[0].attr4).to be_kind_of(Azure::Armrest::BaseModel)
     end
   end

@@ -1,4 +1,5 @@
 require 'active_support/core_ext/string/inflections'
+require 'active_support/core_ext/hash/indifferent_access'
 
 module Azure
   module Armrest
@@ -76,7 +77,7 @@ module Azure
       end ## self
 
       def initialize(json_or_hash)
-        @data = json_or_hash.kind_of?(Hash) ? json_or_hash : JSON.parse(json_or_hash)
+        @data = (json_or_hash.kind_of?(Hash) ? json_or_hash : JSON.parse(json_or_hash)).with_indifferent_access
         @data.each {|key, value| @data[key] = self.class.send(:convert_value, key, value, self) }
       end
 
