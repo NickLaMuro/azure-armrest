@@ -62,14 +62,14 @@ module Azure
               end
             end
 
-          add_accessor_methods(method, key)
+          add_accessor_methods(method, key) unless modelized_list.include?(key)
           new_val
         end
 
         def add_accessor_methods(method, key)
           method = "_#{method}" if instance_methods.include?(method.to_sym)
           class_eval { define_method(method) { @data[key] } }
-          attr_model(method)
+          attr_model(key)
 
           return unless generate_writer?
           class_eval { define_method("#{method}=") { |val| @data[key] = val } }
